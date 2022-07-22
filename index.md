@@ -1,37 +1,53 @@
-## Welcome to GitHub Pages
+*Precise Predictions and New Insights for Atomic Ionisation from the Migdal Effect*  
+P. Cox, M. J. Dolan, C. McCabe, H. M. Quiney (2022)
 
-You can use the [editor on GitHub](https://github.com/petercox/Migdal/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+## Probability tables
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+Exclusive and semi-inclusive single-ionisation probabilities are available for  
+**He, C, F, Ne, Si, Ar, Ge, Kr, Xe**
 
-### Markdown
+Exclusive double ionisation probabilities are available for  
+**He, C, F, Ne, Ar**
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+Bound excitation and excitation+ionisation probailities are available for  
+**He, Ne**
 
-```markdown
-Syntax highlighted code block
+## Example usage
 
-# Header 1
-## Header 2
-### Header 3
+For more detailed examples see examples.py, examples.nb.
 
-- Bulleted
-- List
+### Python 
 
-1. Numbered
-2. List
+```Python
+# Initialisation
+Ne = Migdal('Ne')
 
-**Bold** and _Italic_ and `Code` text
+# Orbital binding energies
+for (orbital, energy) in Ne.orbitals:
+    print('{:4}: {:.3e} keV'.format(orbital, energy))
 
-[Link](url) and ![Image](src)
+# Semi-inclusive differential probabilities for neutron scattering
+Ne.load_probabilities(inclusive=True)
+dPdE = Ne.dpI1(np.array([[log(energy), log(velocity)]]), '1s')
+
+# Exclusive differential probabilities for dark matter
+Ne.load_probabilities(dark_matter=True, double=False)
+dPdE = Ne.dpI1(np.array([[log(energy), log(velocity)]]), '1s')
 ```
 
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
+### Mathematica 
 
-### Jekyll Themes
+```Mathematica
+(* Orbital binding energies *)
+$orbitals["Ne"]
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/petercox/Migdal/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+(* Semi-inclusive differential probabilities for neutron scattering *)
+LoadProbabilities("Ne", Inclusive->True)
+dPdE = dpI1["1s"][Log[energy],Log[velocity]]
 
-### Support or Contact
+(* Exclusive differential probabilities for dark matter *)
+LoadProbabilities("Ne", DarkMatter->True, Double->False)
+dPdE = dpI1["1s"][Log[energy],Log[velocity]]
+```
 
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+For support/questions please contact peter.cox@unimelb.edu.au
