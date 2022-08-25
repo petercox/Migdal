@@ -12,7 +12,7 @@ Exclusive and semi-inclusive single-ionisation probabilities are available for
 Exclusive double ionisation probabilities are available for  
 **He, C, F, Ne, Ar, Xe**
 
-Single & Double bound excitation probabilities are available for  
+Single & double bound excitation probabilities are available for  
 **He, C, F, Ne, Ar, Xe**
 
 Excitation+ionisation probailities are available for  
