@@ -6,7 +6,7 @@ BeginPackage["Migdal`"];
 Print["------------------------------------------
 Migdal ionisation probabilities
 P. Cox, M. Dolan, C. McCabe, H. Quiney (2022)
-arXiv:2208.xxxxx
+arXiv:2208.12222
 ------------------------------------------"];
 
 

@@ -2,7 +2,7 @@
 
 *Precise Predictions and New Insights for Atomic Ionisation from the Migdal Effect*  
 P. Cox, M. J. Dolan, C. McCabe, H. M. Quiney
-arXiv:2208.xxxxx
+arXiv:2208.12222
 
 ## Probability tables
 
