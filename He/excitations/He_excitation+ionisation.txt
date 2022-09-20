@@ -1,4 +1,5 @@
  Element: He
+ Info: 10s,10p,10d,10f,10g,10h,10i,10k,10l
  Maximum L = 30
  Maximum kappa = 31
  No. of transitions =    97

@@ -1,4 +1,5 @@
  Element: Ne
+ Info: 8s,8p,6d
  Maximum L = 10
  Maximum kappa = 12
  No. of transitions =   848

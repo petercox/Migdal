@@ -16,7 +16,7 @@ Single & double bound excitation probabilities are available for
 **He, C, F, Ne, Ar, Xe**
 
 Excitation+ionisation probailities are available for  
-**He, C, F, Ne**
+**He, C, F, Ne, Ar**
 
 ## Example usage
 

@@ -129,19 +129,20 @@ MigdalInterpolate[filename_,type_,OptionsPattern[]]:= Module[{i,data,diff,diff2,
 			Return[(Exp[#2]/v0)^2 Exp[diff[#1]]&];
 		];
 	,
-		(* Single ionisation *)
-		type==1,
-		$vmin = data[[11,2]];
+		(* Single ionisation or ionisation+excitation *)
+		type==1 || type==-2,
+		If[type==1, start=11, start=12];
+		$vmin = data[[start,2]];
 		$vmax = data[[-1,2]];
 		If[OptionValue["Integrated"],
-			data = {Log[#[[2]]],{Log[#[[1]]],#[[3]]}}& /@ data[[11;;]];
+			data = {Log[#[[2]]],{Log[#[[1]]],#[[3]]}}& /@ data[[start;;]];
 			data = Gather[data,#1[[1]]==#2[[1]]&];
 			data = Table[{data[[i,1,1]],Interpolation[data[[i,All,2]], Method->OptionValue["Method"], InterpolationOrder->OptionValue["InterpolationOrder"]]},{i,1,Length[data]}];
 			int = {#[[1]], Log[NIntegrate[Exp[lnEn] #[[2]][lnEn],{lnEn,Log[EThreshold],Log[$emax]},Method->"InterpolationPointsSubdivision",PrecisionGoal->OptionValue["PrecisionGoal"]]]}& /@ data;
 			int = Interpolation[int, Method->OptionValue["Method"], InterpolationOrder->OptionValue["InterpolationOrder"]];
 			Return[Exp[int[#]]&];
 		,
-			data = {{Log[#[[1]]],Log[#[[2]]]},Log[#[[3]]]}& /@ data[[11;;]];
+			data = {{Log[#[[1]]],Log[#[[2]]]},Log[#[[3]]]}& /@ data[[start;;]];
 			diff = Interpolation[data, Method->OptionValue["Method"], InterpolationOrder->OptionValue["InterpolationOrder"]];
 			Return[Exp[diff[##]]&];
 		];
@@ -354,7 +355,7 @@ LoadTotalProbabilities[element_,opts:OptionsPattern[]]:= Module[{ppI1,ppIE,ppI2}
 			pE = pE1[#]+pE2[#]&;
 				
 			(* Single ionisation + excitation *)
-			ppIE = MigdalInterpolate[element<>"/excitations/"<>element<>"_excitation+ionisation.txt",1,FilterRules[{opts}, Options[MigdalInterpolate]]];
+			ppIE = MigdalInterpolate[element<>"/excitations/"<>element<>"_excitation+ionisation.txt",-2,FilterRules[{opts}, Options[MigdalInterpolate]]];
 			If[OptionValue["Integrated"], pIE = ppIE, dpIE = ppIE];
 		];
 	];
