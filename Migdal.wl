@@ -185,7 +185,7 @@ MigdalInterpolate[filename_,type_,OptionsPattern[]]:= Module[{i,data,diff,diff2,
 ];
 
 
-Options[LoadProbabilities]=Flatten[{Options[MigdalInterpolate],{"DarkMatter"->False, "Dipole"->False, "Double"->False, "Inclusive"->False, "VelocityGrid"->"linear"}}];
+Options[LoadProbabilities]=Flatten[{Options[MigdalInterpolate],{"DarkMatter"->False, "Dipole"->False, "Double"->False, "Excitations"->False, "Inclusive"->False, "VelocityGrid"->"linear"}}];
 SyntaxInformation[LoadProbabilities] = {"ArgumentsPattern" -> {_, OptionsPattern[]}};
 
 LoadProbabilities[element_,opts:OptionsPattern[]]:=Module[{i, j, pair, ppI1, ppI2},
@@ -247,6 +247,12 @@ LoadProbabilities[element_,opts:OptionsPattern[]]:=Module[{i, j, pair, ppI1, ppI
 		ppI1 = Association[#[[1]]->MigdalInterpolate[element<>"/single-ionisation/"<>element<>"_"<>#[[1]]<>".txt",1,FilterRules[{opts}, Options[MigdalInterpolate]]]& /@ $orbitals[[element]]];
 	];
 	If[OptionValue["Integrated"], pI1 = ppI1, dpI1 = ppI1];
+	
+	(* Single excitation *)
+	If[OptionValue["Excitations"],
+		pE1 = Association[#[[1]]->MigdalInterpolate[element<>"/excitations/"<>element<>"_"<>#[[1]]<>"_single-excitation.txt",-1,FilterRules[{opts}, Options[MigdalInterpolate]]]& /@ $orbitals[[element]]];
+		pE = pE1;
+	];
 	
 	(* Double ionisation *)
 	If[OptionValue["Double"] && !OptionValue["Inclusive"],
@@ -400,6 +406,10 @@ MigdalReset[OptionsPattern[]]:=Module[{},
 		];
 		Return[];
 	];
+	
+	Clear[pE,pE1];
+	pE1[lnv_]:= 0;
+	pE[lnv_]:= 0;
 
 	If[OptionValue["Integrated"],
 		Clear[pI1,pI21,pI2,ptotal];

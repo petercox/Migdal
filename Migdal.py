@@ -63,6 +63,7 @@ class Migdal:
         self._pI2 = None
         self._ptotal = None
 
+        self._pE1_orbital = None
         self._pI1_orbital = None
         self._pI1_dipole_orbital = None
         self._pI21_orbital = None
@@ -129,10 +130,13 @@ class Migdal:
 
     ##################################################
 
-    def pE1(self, points):
+    def pE1(self, points, orbital=None):
         """Returns probability for excitation."""
 
-        return Migdal._return_probability(self._pE1, points)
+        if orbital is None:
+            return Migdal._return_probability(self._pE1, points)
+        else:
+            return Migdal._return_probability(self._pE1_orbital, points, orbital)
 
     ##################################################
 
@@ -216,8 +220,8 @@ class Migdal:
 
     ##################################################
 
-    def load_probabilities(self, dark_matter=False, dipole=False, double=False, e_threshold=None, inclusive=False, integrated=False, velocity_grid='linear'):
-        """Initialise differential probabilities for individual orbitals."""
+    def load_probabilities(self, dark_matter=False, dipole=False, double=False, e_threshold=None, excitations=False, inclusive=False, integrated=False, velocity_grid='linear'):
+        """Initialise probabilities for individual orbitals."""
 
         if inclusive and dipole:
             print('migdal::load_probabilities: dipole and inclusive are incompatible options.')
@@ -228,6 +232,12 @@ class Migdal:
                 print('migdal::load_probabilities: e_threshold must be at least 0.5 keV for semi-inclusive probabilities.')
                 return False
             double = False
+
+        # Single excitation
+        if excitations:
+            self._pE1_orbital = {}
+            for orbital in self.orbitals:
+                self._pE1_orbital[orbital[0]] = Migdal._interpolate('{0}/excitations/{0}_{1}_single-excitation.txt'.format(self.element,orbital[0]), 'E')
 
         # Dipole single ionisation
         if dipole:
@@ -353,7 +363,7 @@ class Migdal:
                 self._dpI21 = pI2[0]
                 self._dpI2 = pI2[1]
 
-        return False
+        return True
 
     ##################################################
     

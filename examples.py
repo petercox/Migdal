@@ -53,10 +53,13 @@ print("dpI2[1s2p] =", Ne.dpI2(pts2, '1s2p'))
 
 print('\nIntegrated probabilities (Eth = 1.0 keV):')
 
-Ne.load_probabilities(double=True, integrated=True, e_threshold=1.0)
+Ne.load_probabilities(double=True, integrated=True, excitations=True, e_threshold=1.0)
 
 # Array of velocities to evaluate
 pts = np.array([log(0.005)]) # ln(v)
+
+# Single excitation
+print("pE1[1s]  =", Ne.pE1(pts, '1s'))
 
 # Single ionisation above threshold
 print("pI1[1s]  =", Ne.pI1(pts, '1s'))
