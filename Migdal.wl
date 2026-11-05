@@ -108,7 +108,7 @@ MigdalInterpolate[filename_,type_,OptionsPattern[]]:= Module[{i,data,diff,diff2,
 		(* No transition *)
 		type==0,
 		data = {Log[#[[1]]],Log[#[[2]]]}& /@ data[[7;;]];
-		int = Interpolation[data, Method->OptionValue["Method"], InterpolationOrder->1];
+		int = Interpolation[data, Method->OptionValue["Method"], InterpolationOrder->OptionValue["InterpolationOrder"]];
 		Return[Exp[int[##]]&];
 	,
 		(* Excitation *)
@@ -201,8 +201,8 @@ LoadProbabilities[element_,opts:OptionsPattern[]]:=Module[{i, j, pair, ppI1, ppI
 		Return[];
 	]; 
 			
-	If[OptionValue["Inclusive"] && (OptionValue["EThreshold"]===None || OptionValue["EThreshold"] < 0.5),
-		Print["EThreshold must be at least 0.5 keV for semi-inclusive probabilities."];
+	If[OptionValue["Inclusive"] && (OptionValue["EThreshold"]===None || OptionValue["EThreshold"] < 0.56),
+		Print["EThreshold must be at least 0.56 keV for semi-inclusive probabilities."];
 		Return[];
 	]; 
 
@@ -298,8 +298,8 @@ LoadTotalProbabilities[element_,opts:OptionsPattern[]]:= Module[{ppI1,ppIE,ppI2}
 		Return[];
 	]; 
 	
-	If[OptionValue["Inclusive"] && (OptionValue["EThreshold"]===None || OptionValue["EThreshold"] < 0.5),
-		Print["EThreshold must be at least 0.5 keV for semi-inclusive probabilities."];
+	If[OptionValue["Inclusive"] && (OptionValue["EThreshold"]===None || OptionValue["EThreshold"] < 0.56),
+		Print["EThreshold must be at least 0.56 keV for semi-inclusive probabilities."];
 		Return[];
 	]; 
 	

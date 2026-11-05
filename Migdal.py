@@ -10,19 +10,21 @@ arXiv:2208.12222
 
 __author__ = "Peter Cox"
 __email__ = "peter.cox@unimelb.edu.au"
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 #*******************************************************************************
 
 import numpy as np
 import os.path
-from importlib_metadata import version
-from scipy.interpolate import CubicSpline, RectBivariateSpline, RegularGridInterpolator
+from scipy.interpolate import CubicSpline, NdBSpline, RectBivariateSpline, make_interp_spline
 
 #*******************************************************************************
 
 class Migdal:
     """Class to store/access differential Migdal probabilities."""
+
+    # Directory containing the probability tables
+    data_dir = os.path.dirname(os.path.abspath(__file__))
 
     alpha = 1/137.0359895
 
@@ -46,6 +48,7 @@ class Migdal:
         self._dpI1 = None
         self._dpI1_dipole = None
         self._dpIE = None
+        self._dpI21 = None
         self._dpI2 = None
 
         self._dpI1_orbital = None
@@ -80,9 +83,9 @@ class Migdal:
         """Returns differential probability for single ionisation without excitation."""
 
         if orbital is None:
-            return Migdal._return_probability(self._dpI1, (points[:,0],points[:,1]), ev=True)
+            return Migdal._return_probability(self._dpI1, points)
         else:
-            return Migdal._return_probability(self._dpI1_orbital, (points[:,0],points[:,1]), orbital, ev=True)
+            return Migdal._return_probability(self._dpI1_orbital, points, orbital)
 
     ##################################################
 
@@ -99,7 +102,7 @@ class Migdal:
     def dpIE(self, points):
         """Returns differential probability for single ionisation with excitation."""
 
-        return Migdal._return_probability(self._dpIE, (points[:,0],points[:,1]))
+        return Migdal._return_probability(self._dpIE, points)
 
     ##################################################
 
@@ -117,9 +120,9 @@ class Migdal:
         """Returns differential probability for double ionisation with one electron above threshold."""
 
         if orbital is None:
-            return Migdal._return_probability(self._dpI21, (points[:,0],points[:,1]), ev=True)
+            return Migdal._return_probability(self._dpI21, points)
         else:
-            return Migdal._return_probability(self._dpI21_orbital, (points[:,0],points[:,1]), orbital, ev=True)
+            return Migdal._return_probability(self._dpI21_orbital, points, orbital)
 
     ##################################################
 
@@ -198,7 +201,7 @@ class Migdal:
         """Returns total integrated probability."""
 
         if self._pI1 is None:
-            print('Call load_probabilities() method to initialise.')
+            print('Call load_total_probabilities() method to initialise.')
             return None
 
         ptotal = np.zeros(len(points))
@@ -228,16 +231,17 @@ class Migdal:
             return False
 
         if inclusive:
-            if (e_threshold is None or e_threshold < 0.5):
-                print('migdal::load_probabilities: e_threshold must be at least 0.5 keV for semi-inclusive probabilities.')
+            if (e_threshold is None or e_threshold < 0.56):
+                print('migdal::load_probabilities: e_threshold must be at least 0.56 keV for semi-inclusive probabilities.')
                 return False
+            excitations = False
             double = False
 
         # Single excitation
         if excitations:
             self._pE1_orbital = {}
             for orbital in self.orbitals:
-                self._pE1_orbital[orbital[0]] = Migdal._interpolate('{0}/excitations/{0}_{1}_single-excitation.txt'.format(self.element,orbital[0]), 'E')
+                self._pE1_orbital[orbital[0]] = Migdal._interpolate('{0}/excitations/{0}_{1}_single-excitation.txt'.format(self.element,orbital[0]), 'E', required=False)
 
         # Dipole single ionisation
         if dipole:
@@ -260,8 +264,10 @@ class Migdal:
                 if dark_matter or velocity_grid == 'log':
                     pI1_orbital[orbital[0]] = self._interpolate('{0}/single-ionisation/{0}_{1}_DM.txt'.format(self.element,orbital[0]), 'SI', integrated=integrated, e_threshold=e_threshold)
                 # Linear velocity grid
-                else:
+                elif velocity_grid == 'linear':
                     pI1_orbital[orbital[0]] = self._interpolate('{0}/single-ionisation/{0}_{1}.txt'.format(self.element,orbital[0]), 'SI', integrated=integrated, e_threshold=e_threshold)
+                else:
+                    raise ValueError('migdal::load_probabilities: velocity_grid must be either "linear" or "log".')
 
         if integrated:
             self._pI1_orbital = pI1_orbital
@@ -304,8 +310,8 @@ class Migdal:
             return False
 
         if inclusive:
-            if (e_threshold is None or e_threshold < 0.5):
-                print('total_load_probabilities: e_threshold must be at least 0.5 keV for semi-inclusive probabilities.')
+            if (e_threshold is None or e_threshold < 0.56):
+                print('migdal:total_load_probabilities: e_threshold must be at least 0.56 keV for semi-inclusive probabilities.')
                 return False
             excitations = False
             double = False
@@ -325,13 +331,13 @@ class Migdal:
         # Excitations
         if excitations:
             # Single excitation
-            self._pE1 = Migdal._interpolate('{0}/excitations/{0}_single-excitation.txt'.format(self.element), 'E')
+            self._pE1 = Migdal._interpolate('{0}/excitations/{0}_single-excitation.txt'.format(self.element), 'E', required=False)
             if double:
                 # Double excitation
-                self._pE2 = Migdal._interpolate('{0}/excitations/{0}_double-excitation.txt'.format(self.element), 'E')
+                self._pE2 = Migdal._interpolate('{0}/excitations/{0}_double-excitation.txt'.format(self.element), 'E', required=False)
 
                 # Single ionisation + excitation
-                pIE = Migdal._interpolate('{0}/excitations/{0}_excitation+ionisation.txt'.format(self.element), 'EI', integrated=integrated, e_threshold=e_threshold)
+                pIE = Migdal._interpolate('{0}/excitations/{0}_excitation+ionisation.txt'.format(self.element), 'EI', integrated=integrated, e_threshold=e_threshold, required=False)
                 if integrated:
                     self._pIE = pIE
                 else:
@@ -345,8 +351,10 @@ class Migdal:
             if dark_matter or velocity_grid == 'log':
                 pI1 = Migdal._interpolate('{0}/single-ionisation/{0}_single-ionisation_DM.txt'.format(self.element), 'SI', integrated=integrated, e_threshold=e_threshold)
             # Linear velocity grid
-            else:
+            elif velocity_grid == 'linear':
                 pI1 = Migdal._interpolate('{0}/single-ionisation/{0}_single-ionisation.txt'.format(self.element), 'SI', integrated=integrated, e_threshold=e_threshold)
+            else:
+                raise ValueError('migdal::load_total_probabilities: velocity_grid must be either "linear" or "log".')
 
         if integrated:
             self._pI1 = pI1
@@ -368,15 +376,18 @@ class Migdal:
     ##################################################
     
     @staticmethod
-    def _interpolate(filename, type, integrated=False, e_threshold=None):
+    def _interpolate(filename, process, integrated=False, e_threshold=None, required=True):
         """Read Migdal table and return interpolating function."""
 
+        filename = os.path.join(Migdal.data_dir, filename)
         if not os.path.exists(filename):
+            if required:
+                raise FileNotFoundError('migdal::_interpolate: Missing file {}'.format(filename))
             print('migdal::_interpolate: Missing file {}'.format(filename))
             return None
 
-        if type == 'SID':
-            type = 'SI'
+        if process == 'SID':
+            process = 'SI'
             dipole = True
         else:
             dipole = False
@@ -393,28 +404,28 @@ class Migdal:
                     # Read data points
                     if nv > 0:
                         # Energies
-                        if (type =='SI' or type == 'EI') and ipt % nv == 0:
+                        if (process =='SI' or process == 'EI') and ipt % nv == 0:
                             energies[ien] = float(line[0])
                             ien += 1
-                        elif type == 'DI' and ipt % (ne*nv) == 0:
+                        elif process == 'DI' and ipt % (ne*nv) == 0:
                             energies[ien] = float(line[0])
                             ien += 1
 
                         # Velocities
                         if ipt < nv:
-                            if type == 'N' or type == 'E':
+                            if process == 'N' or process == 'E':
                                 ln_velocities[ipt] = np.log(float(line[0]))
-                            elif type == 'SI' or type == 'EI':
+                            elif process == 'SI' or process == 'EI':
                                 ln_velocities[ipt] = np.log(float(line[1]))
-                            elif type == 'DI':
+                            elif process == 'DI':
                                 ln_velocities[ipt] = np.log(float(line[2]))
 
                         # Probabilities
-                        if type == 'N' or type == 'E':
+                        if process == 'N' or process == 'E':
                             dPdE[ipt] = float(line[1])
-                        elif type == 'SI' or type == 'EI':
+                        elif process == 'SI' or process == 'EI':
                             dPdE[ipt] = float(line[2])
-                        elif type == 'DI':
+                        elif process == 'DI':
                             dPdE[ipt] = float(line[3])
                         ipt += 1
 
@@ -427,13 +438,13 @@ class Migdal:
                         nv = int(line[4])
                         ln_velocities = np.zeros(nv)
 
-                        if type == 'N' or type == 'E':
+                        if process == 'N' or process == 'E':
                             dPdE = np.zeros(nv)
-                        elif type == 'SI':
+                        elif process == 'SI':
                             dPdE = np.zeros(ne * nv)
-                        elif type == 'EI':
+                        elif process == 'EI':
                             dPdE = np.zeros(ne * nv)
-                        elif type == 'DI':
+                        elif process == 'DI':
                             dPdE = np.zeros(ne * ne * nv)
                         ipt = 0
                         ien = 0
@@ -443,22 +454,19 @@ class Migdal:
 
         # Interpolating functions
         # No transition, excitation
-        if type == 'N' or type == 'E':
+        if process == 'N' or process == 'E':
             dPdE = np.log(dPdE)
             return CubicSpline(ln_velocities, dPdE, extrapolate=False)
 
         ln_energies = np.log(energies)
 
         # Integral limits
-        if integrated or type == 'DI':
+        if integrated or process == 'DI':
             ln_emin = ln_energies[0]
             ln_emax = ln_energies[-1]
-            if e_threshold is None:
-                ln_eth = ln_emin
-            elif np.log(e_threshold) > ln_emax:
-                print('e_threshold exceeds maximum energy of data.')
-                return
-            elif np.log(e_threshold) < ln_emin:
+            if e_threshold is not None and e_threshold >= energies[-1]:
+                raise ValueError('migdal::_interpolate: e_threshold must be less than the maximum energy of the data ({:g} keV).'.format(energies[-1]))
+            elif e_threshold is None or e_threshold <= energies[0]:
                 e_threshold = None
                 ln_eth = ln_emin
             else:
@@ -469,37 +477,34 @@ class Migdal:
 
             # Single ionisation dipole
             if dipole:
-                dPdE = np.log(dPdE)
-                return lambda lnx : 2*lnx[:,1] - 2*ln_velocities[0] + CubicSpline(ln_energies, dPdE, extrapolate=False)(lnx[:,0])
+                # Velocity dependence is exactly v^2
+                spline = CubicSpline(ln_energies, np.log(dPdE), extrapolate=False)
+                return lambda lnx : 2*lnx[:,1] - 2*ln_velocities[0] + spline(lnx[:,0])
 
             # Single ionisation
-            elif type == 'SI' or type == 'EI':
+            elif process == 'SI' or process == 'EI':
                 dPdE = np.log(dPdE)
                 dPdE = dPdE.reshape((ne,nv))
-                return RectBivariateSpline(ln_energies, ln_velocities, dPdE, kx=3, ky=3)
+                return Migdal._tensor_spline((ln_energies, ln_velocities), dPdE)
 
             # Double ionisation
-            elif type == 'DI':
+            elif process == 'DI':
                 dPdE = dPdE.reshape((ne,ne,nv))
 
                 # Double differential
-                scipy_ver = version('scipy').split('.')
-                if int(scipy_ver[0]) > 1 or int(scipy_ver[1]) >= 9:
-                    interp2 = RegularGridInterpolator(np.array([ln_energies,ln_energies,ln_velocities]), np.log(dPdE), bounds_error=True, method='cubic')
-                else:
-                    interp2 = RegularGridInterpolator(np.array([ln_energies,ln_energies,ln_velocities]), np.log(dPdE), bounds_error=True, method='linear')
+                interp2 = Migdal._tensor_spline((ln_energies, ln_energies, ln_velocities), np.log(dPdE))
 
                 # Single differential for one electron above threshold
                 if e_threshold is not None:
-                    integral = np.zeros((ne,nv))
-                    for j in range(ne):
-                        for i in range(nv):
-                            integrand = energies * dPdE[j,:,i]
-                            integral[j,i] = 2 * CubicSpline(ln_energies, integrand).integrate(ln_emin, ln_eth)
+                    # Integrate E2*dP/dE1dE2 over ln(E2) below threshold
+                    integrand = energies[np.newaxis,:,np.newaxis] * dPdE
+                    integral = 2 * CubicSpline(ln_energies, integrand, axis=1).integrate(ln_emin, ln_eth)
+                    interp21 = Migdal._tensor_spline((ln_energies, ln_velocities), np.log(integral))
                 else:
-                    integral = np.full((ne,nv), 1e-30)
+                    # No threshold: zero probability (ln P = -inf) inside grid, NaN outside
+                    zero = Migdal._tensor_spline((ln_energies, ln_velocities), np.zeros((ne,nv)))
+                    interp21 = lambda lnx : zero(lnx) - np.inf
 
-                interp21 = RectBivariateSpline(ln_energies, ln_velocities, np.log(integral), kx=3, ky=3)
                 return(interp21, interp2)
 
         # Interpolating functions for integrated probabilities
@@ -512,66 +517,84 @@ class Migdal:
                 return lambda lnv : 2*lnv - 2*ln_velocities[0] + integral
 
             # Single ionisation
-            elif type == 'SI' or type == 'EI':
+            elif process == 'SI' or process == 'EI':
                 dPdE = dPdE.reshape((ne,nv))
-                integral = np.zeros(nv)
 
-                for i in range(nv):
-                    integrand = energies * dPdE[:,i]
-                    integral[i] = np.log(CubicSpline(ln_energies, integrand).integrate(ln_eth, ln_emax))
-                    
+                # Integrate E*dP/dE over ln(E) above threshold
+                integrand = energies[:,np.newaxis] * dPdE
+                integral = np.log(CubicSpline(ln_energies, integrand, axis=0).integrate(ln_eth, ln_emax))
+
                 return CubicSpline(ln_velocities, integral, extrapolate=False)
 
             # Double ionisation
-            elif type == 'DI':
+            elif process == 'DI':
                 dPdE = dPdE.reshape((ne,ne,nv))
                 integral = np.zeros((2,nv))
 
+                # Integrand E1*E2*dP/dE1dE2 for integration over ln(E1), ln(E2)
+                integrand = dPdE * np.outer(energies, energies)[:,:,np.newaxis]
+
                 for i in range(nv):
-                    integrand = dPdE[:,:,i] 
-                    for j in range(ne):
-                        for k in range(ne):
-                            integrand[j,k] = integrand[j,k] * energies[j] * energies[k]
+                    spline = RectBivariateSpline(ln_energies, ln_energies, integrand[:,:,i], kx=3, ky=3)
 
                     # One electron above threshold
                     if e_threshold is not None:
-                        integral[0,i] = np.log(2 * RectBivariateSpline(ln_energies, ln_energies, dPdE[:,:,i], kx=3, ky=3).integral(ln_emin, ln_eth, ln_eth, ln_emax))
-                    else:
-                        integral[0,i] = np.log(1e-30)
+                        integral[0,i] = np.log(2 * spline.integral(ln_emin, ln_eth, ln_eth, ln_emax))
 
                     # Both electrons above threshold
-                    integral[1,i] = np.log(RectBivariateSpline(ln_energies, ln_energies, dPdE[:,:,i], kx=3, ky=3).integral(ln_eth, ln_emax, ln_eth, ln_emax))
+                    integral[1,i] = np.log(spline.integral(ln_eth, ln_emax, ln_eth, ln_emax))
 
-                return (CubicSpline(ln_velocities, integral[0], extrapolate=False), CubicSpline(ln_velocities, integral[1], extrapolate=False))
+                if e_threshold is not None:
+                    interp21 = CubicSpline(ln_velocities, integral[0], extrapolate=False)
+                else:
+                    # No threshold: zero probability (ln P = -inf) inside grid, NaN outside
+                    zero = CubicSpline(ln_velocities, np.zeros(nv), extrapolate=False)
+                    interp21 = lambda lnv : zero(lnv) - np.inf
+
+                return (interp21, CubicSpline(ln_velocities, integral[1], extrapolate=False))
 
     ##################################################
 
     @staticmethod
-    def _return_probability(fn, points, orbital=None, ev=False):
+    def _tensor_spline(grids, values, k=3):
+        """Return tensor-product interpolating spline on a regular grid (NaN outside grid)."""
+
+        # Successive 1D not-a-knot interpolation along each axis
+        c = values
+        knots = []
+        for axis, x in enumerate(grids):
+            spline = make_interp_spline(x, c, k=k, axis=axis)
+            knots.append(spline.t)
+            c = np.moveaxis(spline.c, 0, axis)
+
+        return NdBSpline(tuple(knots), c, k, extrapolate=False)
+
+    ##################################################
+
+    @staticmethod
+    def _return_probability(fn, points, orbital=None):
 
         if orbital is not None:
             if fn is None:
                 print('Call load_probabilities() method to initialise.')
                 return None
 
-            try:
-                if ev:
-                    return np.exp(fn[orbital].ev(points[0], points[1]))
-                else:
-                    return np.exp(fn[orbital](points))
-            except KeyError:
+            if orbital not in fn:
                 print("'{}' is not a valid orbital.".format(orbital))
                 return None
+            
+            if fn[orbital] is None:
+                print("Probabilities not available for orbital '{}'.".format(orbital))
+                return None
+
+            return np.exp(fn[orbital](points))
 
         else:
             if fn is None:
                 print('Call load_total_probabilities() method to initialise.')
                 return None
 
-            if ev:
-                return np.exp(fn.ev(points[0], points[1]))
-            else:
-                return np.exp(fn(points))
+            return np.exp(fn(points))
 
     ##################################################
 
